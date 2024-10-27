@@ -1,0 +1,136 @@
+# Vault Service to expose the Vault server
+apiVersion: v1
+kind: Service
+metadata:
+  name: vault-dev
+spec:
+  selector:
+    app: vault
+  ports:
+    - protocol: TCP
+      port: 8200
+      targetPort: 8200
+---
+# Vault Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: vault-dev
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: vault
+  template:
+    metadata:
+      labels:
+        app: vault
+    spec:
+      containers:
+        - name: vault-dev
+          image: hashicorp/vault:1.17.5
+          env:
+            - name: VAULT_DEV_ROOT_TOKEN_ID
+              value: 'root'
+            - name: VAULT_ADDR
+              value: 'http://0.0.0.0:8200'
+            - name: VAULT_API_ADDR
+              value: 'http://0.0.0.0:8200'
+          ports:
+            - containerPort: 8200
+          securityContext:
+            capabilities:
+              add: ['IPC_LOCK']
+          command:
+            - vault
+            - server
+            - -dev
+            - -dev-listen-address=0.0.0.0:8200 # Listen on all interfaces
+            - -dev-root-token-id=root
+          readinessProbe:
+            exec:
+              command:
+                - /bin/vault
+                - status
+            initialDelaySeconds: 2
+            periodSeconds: 5
+            timeoutSeconds: 1
+          resources:
+            requests:
+              cpu: '250m'
+              memory: '256Mi'
+            limits:
+              cpu: '500m'
+              memory: '512Mi'
+      volumes:
+        - name: vault-file
+          emptyDir: {}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: vault-init-script
+data:
+  init-vault.sh: |
+    #! /bin/sh
+    set -e
+    echo "$(date) Starting Vault initialization script..."
+
+    export VAULT_ADDR=http://vault-dev:8200
+
+    echo "$(date) Waiting for Vault to be ready..."
+    until vault status >/dev/null 2>&1; do
+      echo "$(date) Vault is not ready yet. Retrying..."
+      sleep 2
+    done
+
+    echo "$(date) Logging in to Vault..."
+    vault login root
+    # vault login -no-print root
+
+    echo "$(date) Enabling transit secrets engine..."
+    vault secrets enable transit
+    vault write -f transit/keys/key1 type=ed25519
+    vault write -f transit/keys/key2 type=ecdsa-p256
+
+    echo "$(date) Enabling kv secrets engine and adding secret..."
+    vault secrets enable -path=kv kv
+    vault kv put kv/my-secret my-key=my-value
+
+    echo "$(date) Vault initialization script complete."
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: vault-init-job
+spec:
+  backoffLimit: 4
+  template:
+    spec:
+      restartPolicy: OnFailure
+      containers:
+        - name: vault-init
+          image: hashicorp/vault:1.17.5
+          command:
+            - /vault-init/init-vault.sh
+          env:
+            - name: VAULT_ADDR
+              value: 'http://vault-dev:8200'
+          volumeMounts:
+            - name: vault-init
+              mountPath: /vault-init
+          resources:
+            requests:
+              cpu: '100m'
+              memory: '128Mi'
+            limits:
+              cpu: '200m'
+              memory: '256Mi'
+      volumes:
+        - name: vault-init
+          configMap:
+            name: vault-init-script
+            items:
+              - key: init-vault.sh
+                path: init-vault.sh
+                mode: 0755 # Apply execute permissions
