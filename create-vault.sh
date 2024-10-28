@@ -29,7 +29,7 @@ fi
 
 # Wait for the Vault pod to be ready
 log "Waiting for Vault pod to be ready..."
-kubectl wait --for=condition=available deployment/vault-dev --timeout=60s
+kubectl wait --for=condition=available deployment/vault-dev --timeout=30s
 
 if [ $? -ne 0 ]; then
   log "Vault pod did not become ready in time."

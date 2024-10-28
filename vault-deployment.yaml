@@ -64,7 +64,8 @@ spec:
               memory: '512Mi'
       volumes:
         - name: vault-file
-          emptyDir: {}
+          emptyDir:
+            medium: Memory
 ---
 apiVersion: v1
 kind: ConfigMap
@@ -104,7 +105,7 @@ kind: Job
 metadata:
   name: vault-init-job
 spec:
-  ttlSecondsAfterFinished: 60
+  ttlSecondsAfterFinished: 30
   backoffLimit: 4
   template:
     spec:
