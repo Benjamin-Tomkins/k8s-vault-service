@@ -65,7 +65,8 @@ spec:
       volumes:
         - name: vault-file
           emptyDir:
-            medium: Memory
+            medium: Memory # Store data in tmpfs memory
+            sizeLimit: 1Mi # Set the size limit to 1 MB
 ---
 apiVersion: v1
 kind: ConfigMap
