@@ -7,6 +7,18 @@ log() {
   echo "$(date '+%Y-%m-%d %H:%M:%S') $1"
 }
 
+# Check if Docker is running
+if ! docker info > /dev/null 2>&1; then
+  log "Docker Desktop is not running. Please start Docker Desktop and try again."
+  exit 1
+fi
+log "Docker Desktop is running."
+
+if kubectl config get-contexts | grep -q 'docker-desktop'; then
+  log "Kubernetes is enabled in Docker Desktop. Setting context to docker-desktop."
+  kubectl config use-context docker-desktop
+fi
+
 # Set the YAML file for the Vault deployment
 VAULT_DEPLOYMENT_FILE="vault-deployment.yaml"
 
