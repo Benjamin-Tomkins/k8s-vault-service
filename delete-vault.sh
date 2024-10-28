@@ -23,8 +23,15 @@ else
   echo "No active port forwarding process found on port 8200."
 fi
 
-# Delete Vault resources and wait for completion
-echo "Deleting Vault resources..."
-kubectl delete -f "$VAULT_DEPLOYMENT_FILE" --grace-period=0 --force --wait
+# Delete Vault resources if they exist
+resources=("service/vault-dev" "deployment.apps/vault-dev" "configmap/vault-init-script" "job/vault-init-job")
+for resource in "${resources[@]}"; do
+  if kubectl get "$resource" > /dev/null 2>&1; then
+    echo "Deleting $resource..."
+    kubectl delete "$resource" --grace-period=0 --force --wait
+  else
+    echo "$resource not found, skipping."
+  fi
+done
 
 echo "Vault resources have been successfully stopped and deleted."
