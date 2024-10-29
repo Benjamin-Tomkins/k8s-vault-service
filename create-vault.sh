@@ -50,7 +50,7 @@ fi
 
 # Start port-forwarding to access Vault, suppressing output
 log "Starting port-forwarding to access Vault on http://127.0.0.1:8200..."
-kubectl port-forward deployment/vault-dev 8200:8200 >/dev/null 2>&1 &
+kubectl port-forward service/vault-dev 8200:8200 >/dev/null 2>&1 &
 PORT_FORWARD_PID=$!
 
 # Trap any errors to terminate port-forwarding if the script fails
